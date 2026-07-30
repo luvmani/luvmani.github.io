@@ -113,6 +113,23 @@
     });
   }
 
+  function moveObstaclesOneCell() {
+    if (!randomFood) return;
+    const nextObstacles = [];
+    obstacles.forEach((obstacle, index) => {
+      const otherCurrentObstacles = obstacles.filter((_, otherIndex) => otherIndex !== index);
+      const choices = Object.values(directions)
+        .map((step) => ({ x: obstacle.x + step.x, y: obstacle.y + step.y }))
+        .filter((point) => isInside(point)
+          && !isWormOccupied(point)
+          && !isInList(point, foods)
+          && !isInList(point, otherCurrentObstacles)
+          && !isInList(point, nextObstacles));
+      nextObstacles.push(choices.length ? choices[Math.floor(Math.random() * choices.length)] : obstacle);
+    });
+    obstacles = nextObstacles;
+  }
+
   function chooseAutoDirection() {
     if (!foods.length) return direction;
     const target = foods.reduce((closest, food) => {
@@ -187,6 +204,7 @@
       worm.pop();
     }
     moveFoodOneCell();
+    moveObstaclesOneCell();
     render();
   }
 
