@@ -48,7 +48,7 @@ h1 { max-width: 12ch; margin: 0; font-size: clamp(2.75rem, 8vw, 6.5rem); }
 .game-cell.worm-head::before { left: 18%; }
 .game-cell.worm-head::after { right: 18%; }
 .game-cell.food { border-radius: 50%; background: radial-gradient(circle at 30% 25%, #d9a66f 0 12%, #9a5f32 42%, #653b22 100%); box-shadow: inset -2px -2px 0 #4a2b1c, 0 0 0 1px #4a2b1c; }
-.game-cell.obstacle { border-radius: 35% 55% 45% 30%; background: radial-gradient(circle at 35% 25%, #a87547, #60422f 72%); box-shadow: inset -2px -2px 0 #483021; }
+.game-cell.obstacle { border-radius: 35% 55% 45% 30%; background: radial-gradient(circle at 35% 25%, #aeb5ba, #59636b 72%); box-shadow: inset -2px -2px 0 #343b40, 0 1px 2px rgba(30, 38, 42, 0.35); }
 .site-footer { max-width: 72rem; margin: 0 auto; padding: 1.5rem; color: var(--muted); font-size: 0.9rem; }
 
 @media (max-width: 42rem) {
