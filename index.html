@@ -13,8 +13,11 @@
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
     <nav id="site-nav" class="site-nav" aria-label="주요 메뉴">
       <a href="#home">Home</a>
+      <a href="#about">About</a>
+      <a href="#projects">Projects</a>
       <a href="#work">Work</a>
       <a href="#games">Games</a>
+      <a href="#contact">Contact</a>
     </nav>
   </header>
 
@@ -30,13 +33,54 @@
       <p>Project details will be added when public profile information is available.</p>
     </section>
 
+    <section id="about" class="content-section" aria-labelledby="about-title">
+      <h2 id="about-title">About</h2>
+      <p>Personal profile details are private. This space focuses on thoughtful work and interactive experiments.</p>
+    </section>
+
+    <section id="projects" class="content-section" aria-labelledby="projects-title">
+      <h2 id="projects-title">Projects</h2>
+      <p>Selected project information is [사람 확인 필요].</p>
+    </section>
+
     <section id="games" class="content-section games-placeholder" aria-labelledby="games-title">
       <h2 id="games-title">Games</h2>
-      <p>The worm game area is prepared for the next development loop.</p>
+      <p>Guide the worm, collect food, and try the automatic tracking mode.</p>
+      <div class="game-shell" data-game>
+        <div class="game-toolbar">
+          <div class="scoreboard" aria-live="polite">
+            <span>Score <strong id="score">0</strong></span>
+            <span>Best <strong id="high-score">0</strong></span>
+          </div>
+          <div class="game-actions">
+            <button id="start-game" class="game-button game-button-primary" type="button">Start</button>
+            <button id="pause-game" class="game-button" type="button" disabled>Pause</button>
+            <button id="restart-game" class="game-button" type="button">Restart</button>
+          </div>
+        </div>
+        <div class="game-options">
+          <button id="auto-mode" class="game-toggle" type="button" aria-pressed="false">Auto mode: Off</button>
+          <button id="random-food" class="game-toggle" type="button" aria-pressed="false">Random food: Off</button>
+        </div>
+        <p id="game-status" class="game-status" role="status">Press Start to play.</p>
+        <div id="game-board" class="game-board" role="grid" aria-label="Worm game board"></div>
+        <div class="direction-pad" aria-label="Touch controls">
+          <button type="button" class="direction-button direction-up" data-direction="up" aria-label="Move up">↑</button>
+          <button type="button" class="direction-button" data-direction="left" aria-label="Move left">←</button>
+          <button type="button" class="direction-button" data-direction="down" aria-label="Move down">↓</button>
+          <button type="button" class="direction-button" data-direction="right" aria-label="Move right">→</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="content-section" aria-labelledby="contact-title">
+      <h2 id="contact-title">Contact</h2>
+      <p>Contact details are private.</p>
     </section>
   </main>
 
   <footer class="site-footer">Built as a lightweight static experience.</footer>
   <script src="script.js" defer></script>
+  <script src="game.js" defer></script>
 </body>
 </html>
