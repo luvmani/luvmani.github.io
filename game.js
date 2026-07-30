@@ -3,6 +3,8 @@
   if (!board) return;
 
   const size = 20;
+  const initialFoodCount = 5;
+  const maxFoodCount = 10;
   const cells = [];
   const directions = {
     up: { x: 0, y: -1 },
@@ -19,17 +21,20 @@
   const restartButton = document.querySelector('#restart-game');
   const autoButton = document.querySelector('#auto-mode');
   const randomFoodButton = document.querySelector('#random-food');
-  let worm;
-  let food;
-  let direction;
-  let nextDirection;
+  let worm = [];
+  let foods = [];
+  let obstacles = [];
+  let direction = 'right';
+  let nextDirection = 'right';
   let score = 0;
   let highScore = Number(localStorage.getItem('worm-high-score') || 0);
   let timerId = null;
+  let foodGrowthTimerId = null;
   let running = false;
   let paused = false;
   let autoMode = false;
   let randomFood = false;
+  let audioContext = null;
 
   for (let index = 0; index < size * size; index += 1) {
     const cell = document.createElement('div');
@@ -39,19 +44,22 @@
     board.appendChild(cell);
   }
 
-  const keyFor = (point) => `${point.x},${point.y}`;
   const isInside = (point) => point.x >= 0 && point.x < size && point.y >= 0 && point.y < size;
-  const isOccupied = (point, includeTail = true) => worm.some((part, index) => (includeTail || index < worm.length - 1) && part.x === point.x && part.y === point.y);
+  const samePoint = (a, b) => a.x === b.x && a.y === b.y;
   const cellAt = (point) => cells[point.y * size + point.x];
+  const isInList = (point, list) => list.some((item) => samePoint(item, point));
+  const isWormOccupied = (point, includeTail = true) => worm.some((part, index) => (includeTail || index < worm.length - 1) && samePoint(part, point));
+  const isBlocked = (point, includeTail = true) => isWormOccupied(point, includeTail) || isInList(point, obstacles);
 
   function setStatus(message) {
-    statusElement.textContent = message;
+    statusElement.textContent = `${message} Food: ${foods.length}/${maxFoodCount}.`;
   }
 
   function render() {
-    cells.forEach((cell) => cell.classList.remove('worm', 'worm-head', 'food'));
+    cells.forEach((cell) => cell.classList.remove('worm', 'worm-head', 'food', 'obstacle'));
+    obstacles.forEach((point) => cellAt(point).classList.add('obstacle'));
+    foods.forEach((point) => cellAt(point).classList.add('food'));
     worm.forEach((part, index) => cellAt(part).classList.add(index === 0 ? 'worm-head' : 'worm'));
-    if (food) cellAt(food).classList.add('food');
     scoreElement.textContent = String(score);
     highScoreElement.textContent = String(highScore);
   }
@@ -61,41 +69,93 @@
     for (let y = 0; y < size; y += 1) {
       for (let x = 0; x < size; x += 1) {
         const point = { x, y };
-        if (!isOccupied(point)) available.push(point);
+        if (!isBlocked(point) && !isInList(point, foods)) available.push(point);
       }
     }
-    return available[Math.floor(Math.random() * available.length)] || { x: 0, y: 0 };
+    return available[Math.floor(Math.random() * available.length)] || null;
+  }
+
+  function createObstacles() {
+    obstacles = [];
+    const target = 5 + Math.floor(Math.random() * 6);
+    while (obstacles.length < target) {
+      const point = randomEmptyPoint();
+      if (!point) break;
+      obstacles.push(point);
+    }
+  }
+
+  function createFoods(count = initialFoodCount) {
+    foods = [];
+    while (foods.length < count && foods.length < maxFoodCount) {
+      const point = randomEmptyPoint();
+      if (!point) break;
+      foods.push(point);
+    }
+  }
+
+  function addFood() {
+    if (!running || foods.length >= maxFoodCount) return;
+    const point = randomEmptyPoint();
+    if (point) foods.push(point);
+    render();
+    setStatus('A new food appeared.');
   }
 
   function moveFoodOneCell() {
-    if (!randomFood || !food) return;
-    const choices = Object.values(directions)
-      .map((step) => ({ x: food.x + step.x, y: food.y + step.y }))
-      .filter((point) => isInside(point) && !isOccupied(point));
-    if (choices.length) food = choices[Math.floor(Math.random() * choices.length)];
+    if (!randomFood) return;
+    foods = foods.map((food, index) => {
+      const otherFoods = foods.filter((_, otherIndex) => otherIndex !== index);
+      const choices = Object.values(directions)
+        .map((step) => ({ x: food.x + step.x, y: food.y + step.y }))
+        .filter((point) => isInside(point) && !isBlocked(point) && !isInList(point, otherFoods));
+      return choices.length ? choices[Math.floor(Math.random() * choices.length)] : food;
+    });
   }
 
   function chooseAutoDirection() {
-    if (!food) return direction;
+    if (!foods.length) return direction;
+    const target = foods.reduce((closest, food) => {
+      const distance = Math.abs(food.x - worm[0].x) + Math.abs(food.y - worm[0].y);
+      return !closest || distance < closest.distance ? { food, distance } : closest;
+    }, null).food;
     const options = Object.entries(directions)
       .filter(([name]) => name !== reverse[direction])
       .map(([name, step]) => ({ name, point: { x: worm[0].x + step.x, y: worm[0].y + step.y } }))
-      .filter(({ point }) => isInside(point) && !isOccupied(point, false));
-    options.sort((a, b) => Math.abs(a.point.x - food.x) + Math.abs(a.point.y - food.y) - (Math.abs(b.point.x - food.x) + Math.abs(b.point.y - food.y)));
+      .filter(({ point }) => isInside(point) && !isBlocked(point, false));
+    options.sort((a, b) => Math.abs(a.point.x - target.x) + Math.abs(a.point.y - target.y) - (Math.abs(b.point.x - target.x) + Math.abs(b.point.y - target.y)));
     return options[0]?.name || direction;
   }
 
-  function stopTimer() {
-    if (timerId !== null) {
-      clearInterval(timerId);
-      timerId = null;
+  function stopTimers() {
+    if (timerId !== null) clearInterval(timerId);
+    if (foodGrowthTimerId !== null) clearInterval(foodGrowthTimerId);
+    timerId = null;
+    foodGrowthTimerId = null;
+  }
+
+  function playEatSound() {
+    try {
+      audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.frequency.value = 520;
+      oscillator.type = 'sine';
+      gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.12, audioContext.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.12);
+      oscillator.connect(gain).connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.13);
+    } catch (error) {
+      // Audio is optional; the game must continue if browser audio is unavailable.
     }
   }
 
   function gameOver(message) {
     running = false;
     paused = false;
-    stopTimer();
+    stopTimers();
     pauseButton.disabled = true;
     startButton.disabled = false;
     setStatus(message);
@@ -107,19 +167,22 @@
     direction = nextDirection;
     const step = directions[direction];
     const head = { x: worm[0].x + step.x, y: worm[0].y + step.y };
-    const ateFood = food && head.x === food.x && head.y === food.y;
-    if (!isInside(head) || isOccupied(head, ateFood)) {
+    const eatenIndex = foods.findIndex((food) => samePoint(food, head));
+    const ateFood = eatenIndex >= 0;
+    if (!isInside(head) || isBlocked(head, ateFood)) {
       gameOver('Game over. Press Restart to try again.');
       return;
     }
     worm.unshift(head);
     if (ateFood) {
+      foods.splice(eatenIndex, 1);
       score += 1;
       if (score > highScore) {
         highScore = score;
         localStorage.setItem('worm-high-score', String(highScore));
       }
-      food = randomEmptyPoint();
+      playEatSound();
+      setStatus('뾰롱! Food collected.');
     } else {
       worm.pop();
     }
@@ -128,9 +191,12 @@
   }
 
   function reset() {
-    stopTimer();
+    stopTimers();
     worm = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
-    food = { x: 14, y: 10 };
+    foods = [];
+    obstacles = [];
+    createObstacles();
+    createFoods();
     direction = 'right';
     nextDirection = 'right';
     score = 0;
@@ -156,8 +222,9 @@
     pauseButton.disabled = false;
     pauseButton.textContent = 'Pause';
     setStatus('Game running.');
-    stopTimer();
+    stopTimers();
     timerId = setInterval(tick, 180);
+    foodGrowthTimerId = setInterval(addFood, 30000);
   }
 
   function togglePause() {
@@ -179,7 +246,10 @@
 
   startButton.addEventListener('click', start);
   pauseButton.addEventListener('click', togglePause);
-  restartButton.addEventListener('click', reset);
+  restartButton.addEventListener('click', () => {
+    reset();
+    start();
+  });
   autoButton.addEventListener('click', () => {
     autoMode = !autoMode;
     toggleOption(autoButton, autoMode, 'Auto mode');
@@ -188,7 +258,6 @@
     randomFood = !randomFood;
     toggleOption(randomFoodButton, randomFood, 'Random food');
   });
-  document.querySelectorAll('[data-direction]').forEach((button) => button.addEventListener('click', () => setDirection(button.dataset.direction)));
   document.addEventListener('keydown', (event) => {
     const keyMap = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right' };
     const name = keyMap[event.key] || keyMap[event.key.toLowerCase()];
